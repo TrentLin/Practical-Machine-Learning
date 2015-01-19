@@ -1,0 +1,102 @@
+# Practical Machine Leaning Project
+Create by Trent Lin Jan. 18 2015
+
+# Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement ¡V a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. 
+
+This report use data accelerometers on the belt, forearm, arm, and dumbell of 6 participants. http://groupware.les.inf.puc-rio.br/har
+I decide to use randomForest model and split the training data(70% belong to training dataset and the other 30% belong to crross validation dataset). Our model accuracy over validation dataset is 99.61%. In addition, this model promoted a excellent predict result for testing dataset. We submmit 20th files answers for assignment, and all of them are correct. 
+
+# Prepare the Environment
+## libraries and Set Seed
+```{r echo =TRUE}
+library(knitr)
+library(caret)
+library(corrplot)
+library(kernlab)
+library(randomForest)
+set.seed(357)
+```
+
+## Loading and Preprossing the Data
+In this process, we download training dataset from "https://d396qusza40orc.cloudfront.net/predmachlearn/pm and store the training dataset in the destination "./data/pml-training.csv"
+```{r echo = FALSE}
+# Check if a  data folder exits; If not then create one
+#if(!file.exists("data")){dir.create("data")}
+
+# Setting file URL and destination
+fileURL1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+destfile1 <-"./data/pml-training.csv"
+fileURL2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+destfile2 <-"./data/pml-testing.csv"
+
+# Download files and note the time
+#download.file(fileURL1,destfile = destfile1)
+#download.file(fileURL2,destfile = destfile2)
+#DownloadTime <- date()
+```
+
+## Data Getting and Cleaning
+In this process, we load the training dataset. Because there are too many 
+"NA" in this dataset, we remove all columns which have NA to avoid noise.In addition, we also remove the first eight indenfiy columns which are username, timestamp etc.
+```{r echo = FALSE}
+# read the csv file for training
+training_data <- read.csv(destfile1,na.strings= c("NA",""," ","#DIV/0!"))
+
+# clean the data by remove columns with NA
+training_data_NA <- apply(training_data,2,function(x){sum(is.na(x))})
+training_data_clean <- training_data[,which(training_data_NA == 0)]
+
+# remove identify columns such as user_name, timestamp, etc
+training_data_clean <- training_data_clean[8:length(training_data_clean)]
+```
+
+# Modeling
+## Split dataset into training and cross validation datasets
+The training dataset was split into training and cross validation datasets in 70 : 30 ratio in order to train the randomForest model and implement cross validation.
+```{r echo = FALSE}
+inTrain <- createDataPartition(y=training_data_clean$classe, p = 0.7, list = FALSE)
+training <- training_data_clean[inTrain,]
+crossval <- training_data_clean[-inTrain,]
+dim(training); dim(crossval)
+```
+
+## plot a correlation matrix
+From the correlation matrix plot, we found that the dark red and blue cicle indicate the hightly negative and positive relationships respectively between two variables. There isn't much concern for highly correlated predictors which means that all of them can be concluded in to the randomForest model. 
+```{r echo = FALSE}
+correlMatrix <- cor(training[,-length(training)])
+corrplot(correlMatrix, order = "FPC", method = "circle", type = "lower", tl.cex = 0.6, tl.col=rgb(0,0,0))
+```
+
+## randomForest modle
+Then we use all predictors to fit a randomForest model. From the result we found that OOB (estimate of error rate) is 0.53%. This number is satisfied enough for cross validation and testing.  
+```{r echo = FALSE}
+FitModel <- randomForest(classe ~ ., data = training)
+FitModel
+```
+
+# Cross Validation
+We use the others 30% data from traing set as cross validation dataset to 
+validate our modle. From confusionMatrix, we found that the accuracy rate is 99.61%. This model is indeed adequate to preidct new dataset. 
+```{r echo = FALSE}
+predictcrossval <- predict(FitModel,crossval)
+confusionMatrix(crossval$classe, predictcrossval)
+```
+
+# Prediction
+In this process we load testing datasets in to R (https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) and implement getting and cleaning data process.
+We use our model to predict the classe of test data and upload assignment for grade.
+```{r echo=FALSE}
+# getting and cleaning for testing data
+testing_data <- read.csv(destfile2,na.strings= c("NA",""," ","#DIV/0!"))
+testing_data_NA <- apply(testing_data,2,function(x){sum(is.na(x))})
+testing_data_clean <- testing_data[,which(testing_data_NA == 0)]
+testing_data_clean <- testing_data_clean[8:length(testing_data_clean)]
+
+# predict class of testing data
+predictTest <- predict(FitModel, testing_data_clean)
+predictTest
+```
+
+# Conclution
+From our randomFores model the OOB (estimate of error rate) is 0.53% and form confusionMatrix the cross validation dataset accuracy rate is 99.61%. We use this model to predict test data and upload for assignment, all of the 20th answers are correct.
